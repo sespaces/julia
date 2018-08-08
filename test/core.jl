@@ -629,7 +629,8 @@ let
     @test !isdefined(a, :foo)
     @test !isdefined(2, :a)
 
-    @test_throws TypeError isdefined(2)
+    @test_throws TypeError isdefined(Base, 2)
+    @test_throws ArgumentError isdefined(2)
 end
 
 let
@@ -2450,7 +2451,7 @@ end
 # pull request #9534
 @test_throws BoundsError((1, 2), 3) begin; a, b, c = 1, 2; end
 let a = []
-    @test_broken try; a[]; catch ex; (ex::BoundsError).a === a && ex.i == (1,); end # TODO: Re-enable after PLI
+    @test try; a[]; catch ex; (ex::BoundsError).a === a && ex.i == (); end
     @test_throws BoundsError(a, (1, 2)) a[1, 2]
     @test_throws BoundsError(a, (10,)) a[10]
 end
@@ -6674,3 +6675,23 @@ c28399 = 42
 @test g28399(0)() == 42
 @test g28399(1)() == 42
 @test_throws UndefVarError(:__undef_28399__) f28399()
+
+# issue #28445
+mutable struct foo28445
+    x::Int
+end
+
+@noinline make_foo28445() = (foo28445(1), foo28445(rand(1:10)), foo28445(rand(1:10)))
+@noinline function use_tuple28445(c)
+    @test isa(c[2], foo28445)
+    @test isa(c[3], foo28445)
+end
+
+function repackage28445()
+    (_, a, b) = make_foo28445()
+    GC.gc()
+    c = (foo28445(1), foo28445(2), a, b)
+    use_tuple28445(c)
+    true
+end
+@test repackage28445()
