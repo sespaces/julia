@@ -9,7 +9,7 @@ from [`AbstractArray`](@ref). See the [manual section on the AbstractArray inter
 on implementing a custom array type.
 
 An array is a collection of objects stored in a multi-dimensional grid. In the most general case,
-an array may contain objects of type `Any`. For most computational purposes, arrays should contain
+an array may contain objects of type [`Any`](@ref). For most computational purposes, arrays should contain
 objects of a more specific type, such as [`Float64`](@ref) or [`Int32`](@ref).
 
 In general, unlike many other technical computing languages, Julia does not expect programs to
@@ -23,7 +23,7 @@ sharing](https://en.wikipedia.org/wiki/Evaluation_strategy#Call_by_sharing)
 while this prevents accidental modification by callees of a value in the caller,
 it makes avoiding unwanted copying of arrays difficult. By convention, a
 function name ending with a `!` indicates that it will mutate or destroy the
-value of one or more of its arguments (see, for example, [`sort`](@ref) and [`sort!`](@ref).
+value of one or more of its arguments (see, for example, [`sort`](@ref) and [`sort!`](@ref)).
 Callees must make explicit copies to ensure that they don't modify inputs that
 they don't intend to change. Many non- mutating functions are implemented by
 calling a function of the same name with an added `!` at the end on an explicit
@@ -38,8 +38,8 @@ copy of the input, and returning that copy.
 | [`ndims(A)`](@ref)     | the number of dimensions of `A`                                                  |
 | [`size(A)`](@ref)      | a tuple containing the dimensions of `A`                                         |
 | [`size(A,n)`](@ref)    | the size of `A` along dimension `n`                                              |
-| [`axes(A)`](@ref)   | a tuple containing the valid indices of `A`                                      |
-| [`axes(A,n)`](@ref) | a range expressing the valid indices along dimension `n`                         |
+| [`axes(A)`](@ref)      | a tuple containing the valid indices of `A`                                      |
+| [`axes(A,n)`](@ref)    | a range expressing the valid indices along dimension `n`                         |
 | [`eachindex(A)`](@ref) | an efficient iterator for visiting each position in `A`                          |
 | [`stride(A,k)`](@ref)  | the stride (linear index distance between adjacent elements) along dimension `k` |
 | [`strides(A)`](@ref)   | a tuple of the strides in each dimension                                         |
@@ -777,7 +777,7 @@ julia> string.(1:3, ". ", ["First", "Second", "Third"])
 
 ## Implementation
 
-The base array type in Julia is the abstract type [`AbstractArray{T,N}`](@ref). It is parametrized by
+The base array type in Julia is the abstract type [`AbstractArray{T,N}`](@ref). It is parameterized by
 the number of dimensions `N` and the element type `T`. [`AbstractVector`](@ref) and [`AbstractMatrix`](@ref) are
 aliases for the 1-d and 2-d cases. Operations on `AbstractArray` objects are defined using higher
 level operators and functions, in a way that is independent of the underlying storage. These operations
@@ -828,7 +828,7 @@ index of dimension `k` by `1` should increase the index `i` of [`getindex(A,i)`]
 [`stride(A,k)`](@ref). If a pointer conversion method [`Base.unsafe_convert(Ptr{T}, A)`](@ref) is
 provided, the memory layout must correspond in the same way to these strides. `DenseArray` is a
 very specific example of a strided array where the elements are arranged contiguously, thus it
-provides its subtypes with the approporiate definition of `strides`. More concrete examples
+provides its subtypes with the appropriate definition of `strides`. More concrete examples
 can be found within the [interface guide for strided arrays](@ref man-interface-strided-arrays).
 [`StridedVector`](@ref) and [`StridedMatrix`](@ref) are convenient aliases for many of the builtin array types that
 are considered strided arrays, allowing them to dispatch to select specialized implementations that

@@ -160,21 +160,11 @@
                    (let ((meta (take-while (lambda (x) (and (pair? x)
                                                             (memq (car x) '(line meta))))
                                            (cdr body)))
-                         (val (last body)))
-                     ;; wrap one-liners in `convert` instead of adding an ssavalue
-                     (if (and (length= (cdr body) (+ 1 (length meta)))
-                              (not (expr-contains-p return? (if (return? val)
-                                                                (cadr val)
-                                                                val))))
-                         `(,(car body) ,@meta
-                           ,(if (return? val)
-                                `(return ,(convert-for-type-decl (cadr val) rett))
-                                (convert-for-type-decl val rett)))
-                         (let ((R (make-ssavalue)))
-                           `(,(car body) ,@meta
-                             (= ,R ,rett)
-                             (meta ret-type ,R)
-                             ,@(list-tail body (+ 1 (length meta))))))))))))
+                         (R (make-ssavalue)))
+                     `(,(car body) ,@meta
+                       (= ,R ,rett)
+                       (meta ret-type ,R)
+                       ,@(list-tail body (+ 1 (length meta))))))))))
 
 ;; convert x<:T<:y etc. exprs into (name lower-bound upper-bound)
 ;; a bound is #f if not specified
@@ -692,7 +682,7 @@
                             ,@(map make-decl field-names field-types))
                       (block
                        ,@locs
-                       (new ,name ,@field-names))))
+                       (new (outerref ,name) ,@field-names))))
          any-ctor)
         (list any-ctor))))
 
@@ -1916,16 +1906,19 @@
                                     (ssavalue? x))
                                 x (make-ssavalue)))
                        (ini (if (eq? x xx) '() `((= ,xx ,(expand-forms x)))))
+                       (n   (length lhss))
                        (st  (gensy)))
                   `(block
                     ,@ini
                     ,.(map (lambda (i lhs)
                              (expand-forms
                               (lower-tuple-assignment
-                               (list lhs st)
+                               (if (= i (- n 1))
+                                   (list lhs)
+                                   (list lhs st))
                                `(call (top indexed_iterate)
                                       ,xx ,(+ i 1) ,.(if (eq? i 0) '() `(,st))))))
-                           (iota (length lhss))
+                           (iota n)
                            lhss)
                     (unnecessary ,xx))))))
          ((typed_hcat)
@@ -2430,7 +2423,7 @@
          '(null))
         ((eq? (car e) 'require-existing-local)
          (if (not (memq (cadr e) env))
-             (error "no outer variable declaration exists for \"for outer\""))
+             (error "no outer local variable declaration exists for \"for outer\""))
          '(null))
         ((eq? (car e) 'lambda)
          (let* ((lv   (lam:vars e))
@@ -2747,12 +2740,37 @@ f(x) = yt(x)
         ,(delete-duplicates (append (lam:sp lam) capt-sp)))
       ,body)))
 
+;; renumber ssavalues assigned in an expr, allowing it to be repeated
+(define (renumber-assigned-ssavalues e)
+  (let ((vals (expr-find-all (lambda (x) (and (assignment? x) (ssavalue? (cadr x))))
+                             e
+                             cadadr)))
+    (if (null? vals)
+        e
+        (let ((repl (table)))
+          (for-each (lambda (id) (put! repl id (make-ssavalue)))
+                    vals)
+          (let do-replace ((x e))
+            (if (or (atom? x) (quoted? x))
+                x
+                (if (eq? (car x) 'ssavalue)
+                    (or (get repl (cadr x) #f) x)
+                    (cons (car x)
+                          (map do-replace (cdr x))))))))))
+
 (define (convert-for-type-decl rhs t)
   (if (equal? t '(core Any))
       rhs
-      `(call (core typeassert)
-             (call (top convert) ,t ,rhs)
-             ,t)))
+      (let* ((temp (if (or (atom? t) (ssavalue? t) (quoted? t))
+                       #f
+                       (make-ssavalue)))
+             (ty   (or temp t))
+             (ex   `(call (core typeassert)
+                          (call (top convert) ,ty ,rhs)
+                          ,ty)))
+        (if temp
+            `(block (= ,temp ,(renumber-assigned-ssavalues t)) ,ex)
+            ex))))
 
 ;; convert assignment to a closed variable to a setfield! call.
 ;; while we're at it, generate `convert` calls for variables with
